@@ -47,6 +47,8 @@ local utf8 = require("utf8")
 local base64 = require("base64")
 local ltn12 = require("ltn12")
 
+local zlib = require("zlib")
+
 local item_dir = os.getenv("item_dir")
 local warc_file_base = os.getenv("warc_file_base")
 local concurrency = tonumber(os.getenv("concurrency"))
@@ -143,6 +145,7 @@ find_item = function(url)
 end
 
 set_item = function(url)
+  garbagecollect("collect")
   found = find_item(url)
   if found then
     item_type = found["type"]
@@ -165,6 +168,7 @@ set_item = function(url)
       print("Archiving item " .. item_name)
     end
   end
+  garbagecollect("collect")
 end
 
 allowed = function(url, parenturl)
@@ -407,6 +411,25 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
+  local function runcom(command)
+    local handle = io.popen(command)
+    local output = handle:read("*a")
+    handle:close()
+
+    return output
+  end
+
+  local function decompress_gzip(file)
+    local f = assert(io.open(file, "rb"))
+    local compressed_data = f:read("*all")
+    f:close()
+
+    local stream = zlib.inflate()
+    local output, eof, bytes_in, bytes_out = stream(compressed_data)
+
+    return output
+  end
+
   if allowed(url)
     and (status_code < 300 or status_code == 302) then
     html = read_file(file)
@@ -429,9 +452,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local asset_id = url:match("/v2/assetId/([0-9]+)$")
     if asset_id then
       local command = 'wget -q -S -U "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0" -O /dev/null "' .. url .. '" 2>&1'
-      local handle = io.popen(command)
-      local output = handle:read("*a")
-      handle:close()
+      local output = runcom(command)
 
       local version_number = output:match("roblox%-assetversionnumber: (%d+)")
 
@@ -478,9 +499,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         f:close()
 
         local command = "./binary_to_xml < " .. temp
-        local handle = io.popen(command, "r")
-        local output = handle:read("*a")
-        handle:close()
+        local output = runcom(command)
         if not string.match(output, "[%s]") then
           error("No output retrieved.")
         end
@@ -504,10 +523,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         -- hell
 
         -- check if html compressed
-        local command = 'gunzip -dc ' .. file .. ' &> /dev/null'
-        local handle = io.popen(command)
-        local output = handle:read("*a")
-        handle:close()
+        local output = decompress_gzip(file)
 
         if not output:match("not in gzip format") then
           check_roblox_type(output)
