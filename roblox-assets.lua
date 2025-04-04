@@ -145,7 +145,6 @@ find_item = function(url)
 end
 
 set_item = function(url)
-  garbagecollect("collect")
   found = find_item(url)
   if found then
     item_type = found["type"]
@@ -166,9 +165,10 @@ set_item = function(url)
       is_initial_url = true
       item_name = item_name_new
       print("Archiving item " .. item_name)
+      collectgarbage("collect")
+      collectgarbage("collect")
     end
   end
-  garbagecollect("collect")
 end
 
 allowed = function(url, parenturl)
@@ -423,10 +423,13 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local f = assert(io.open(file, "rb"))
     local compressed_data = f:read("*all")
     f:close()
-
     local stream = zlib.inflate()
     local output, eof, bytes_in, bytes_out = stream(compressed_data)
-
+    if not eof
+      or bytes_in ~= string.len(compressed_data)
+      or bytes_out ~= string.len(output) then
+      error("Something went wrong with decompressing data.")
+    end
     return output
   end
 
@@ -492,7 +495,6 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       end
       local b = string.match(content, "<roblox!.*</roblox>")
       if b then
-        print("Running the binary_to_xml binary.")
         local temp = file .. "_rblx.tmp"
         local f = io.open(temp, "w")
         f:write(b)
