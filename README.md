@@ -1,6 +1,6 @@
 # roblox-assets-grab
 
-More information about the archiving project can be found on the ArchiveTeam wiki: [Roblox assets](https://wiki.archiveteam.org/index.php/Roblox_assets)
+More information about the archiving project can be found on the ArchiveTeam wiki: [Roblox](https://wiki.archiveteam.org/index.php/Roblox)
 
 ## Setup instructions
 
